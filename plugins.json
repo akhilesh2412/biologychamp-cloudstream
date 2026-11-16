@@ -1,0 +1,22 @@
+[
+    {
+        "iconUrl": "https://lwfiles.mycourse.app/62a6cd5e1e9e2fbf212d608d-public/05e2153f1e10cdbe245ce6ae493910e9.jpeg",
+        "fileHash": "sha256-41b56715326ebe0649ee79125db44e25c3eec2acdce2846ea3b9a95b33bbac27",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/akhilesh2412/biologychamp-cloudstream",
+        "fileSize": 20987,
+        "status": 1,
+        "language": "en",
+        "authors": [
+            "Akhilesh2412"
+        ],
+        "tvTypes": [
+            "Others"
+        ],
+        "version": 1,
+        "internalName": "BiologyChamp",
+        "description": "BiologyChamp study batches from https://new.biologychamp.co.in/study/study01.json \u2014 Alpha, Delta, Sigma, Prime, BPSC, TRE, Railway and more. Browse by section, search any batch, open a batch to see its lectures grouped by subject, and play direct HLS / MP4 lecture links.",
+        "url": "https://raw.githubusercontent.com/akhilesh2412/biologychamp-cloudstream/builds/BiologyChamp.cs3",
+        "name": "BiologyChamp"
+    }
+]
