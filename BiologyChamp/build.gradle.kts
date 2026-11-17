@@ -1,7 +1,7 @@
 // BiologyChamp — single-provider CloudStream plugin.
 // Version must stay a bare integer: the CloudStream gradle plugin reads
 // `project.version` with .toIntOrNull() and falls back to -1 otherwise.
-version = 2
+version = 3
 
 dependencies {
     // jsoup 1.18.3 is compiled against jspecify annotations (provided
