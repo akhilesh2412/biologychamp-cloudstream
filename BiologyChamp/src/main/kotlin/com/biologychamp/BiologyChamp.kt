@@ -53,6 +53,12 @@ import org.json.JSONObject
  * thumbnail), played through CloudStream's bundled YouTube extractor.
  * Nothing old was removed — the BiologyChamp batches work exactly
  * as before.
+ *
+ * v6 (2026-11-18): on play, a YouTube episode first tries a fresh
+ * 1080p direct link from the y2mate converter (fetched at that moment,
+ * because such links expire within minutes and are blocked when opened
+ * directly), then falls back to the bundled YouTube extractor — so a
+ * video still plays even if the converter is blocked.
  */
 class BiologyChamp : MainAPI() {
 
@@ -527,6 +533,61 @@ class BiologyChamp : MainAPI() {
     // Playback
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // y2mate 1080p direct link (added 2026-11-18, v6)
+    // ------------------------------------------------------------------
+    // A download site's 1080p link cannot be stored: it is a short-lived
+    // tunnel URL (dl12.yt-dl.click) that expires within minutes and is
+    // blocked when opened directly, so it is fetched fresh here, at the
+    // moment the user presses play, and only for YouTube videos. The
+    // converter needs a per-video key first, then returns the direct
+    // URL for the 1080p MP4. If the converter is blocked or slow, this
+    // returns null and playback falls back to the bundled YouTube
+    // extractor below — a video never ends up with zero sources
+    // because of this step.
+    private suspend fun fetchY2mate1080p(videoId: String): String? {
+        return try {
+            val keyText = app.get(
+                "https://cnv.cx/v2/sanity/key?id=$videoId",
+                headers = mapOf(
+                    "User-Agent" to UA,
+                    "Content-Type" to "application/json",
+                ),
+            ).text
+            val key = JSONObject(keyText).optString("key").trim()
+            if (key.isBlank()) return null
+            val body = app.post(
+                "https://cnv.cx/v2/converter",
+                headers = mapOf(
+                    "User-Agent" to UA,
+                    "Content-Type" to "application/x-www-form-urlencoded",
+                    "Accept" to "*/*",
+                    "key" to key,
+                ),
+                data = mapOf(
+                    "link" to "https://youtu.be/$videoId",
+                    "format" to "mp4",
+                    "audioBitrate" to "128",
+                    "videoQuality" to "1080",
+                    "filenameStyle" to "pretty",
+                    "vCodec" to "h264",
+                ),
+            ).text
+            JSONObject(body).optString("url").trim().takeIf { it.isNotBlank() }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun youtubeVideoId(url: String): String? {
+        // Episodes are stored as watch?v=ID; also accept youtu.be/ID.
+        val watch = Regex("[?&]v=([A-Za-z0-9_-]{6,})").find(url)
+            ?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
+        if (watch != null) return watch
+        return Regex("youtu\\.be/([A-Za-z0-9_-]{6,})").find(url)
+            ?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
+    }
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -537,7 +598,10 @@ class BiologyChamp : MainAPI() {
         if (videoUrl.isBlank()) return false
         // A YouTube watch page is not a playable file, so there is no
         // direct-link fallback for it — the bundled YouTube extractor
-        // (via loadExtractor below) is the only source.
+        // (via loadExtractor below) is a source, and for YouTube videos
+        // a fresh 1080p link from the y2mate converter is tried first
+        // (see fetchY2mate1080p). Download links are never stored: they
+        // expire within minutes, so they are fetched at play time.
         val isYoutube = videoUrl.contains("youtube.com", ignoreCase = true) ||
             videoUrl.contains("youtu.be", ignoreCase = true)
         return try {
@@ -547,15 +611,38 @@ class BiologyChamp : MainAPI() {
                 lower.contains(".mpd") -> ExtractorLinkType.DASH
                 else -> ExtractorLinkType.VIDEO
             }
+            var added = false
+            // YouTube: try a fresh 1080p direct link first. Best effort
+            // only — any failure falls through to the extractor below.
+            if (isYoutube) {
+                val videoId = youtubeVideoId(videoUrl)
+                if (!videoId.isNullOrBlank()) {
+                    val direct1080p = fetchY2mate1080p(videoId)
+                    if (!direct1080p.isNullOrBlank()) {
+                        callback(
+                            newExtractorLink(
+                                name, "Y2Mate 1080p", direct1080p,
+                                ExtractorLinkType.VIDEO,
+                            ) {
+                                referer = "https://www.y2mate.in.net/"
+                                quality = Qualities.P1080.value
+                            }
+                        )
+                        added = true
+                    }
+                }
+            }
             // Direct HLS / MP4 links from the course JSON play as-is.
             // loadExtractor first gives bundled extractors a chance on
             // any wrapped / redirecting host; the direct link is the
             // fallback so a lecture never ends up with zero sources.
-            var added = false
             try {
-                added = loadExtractor(videoUrl, videoUrl, subtitleCallback, callback)
+                if (loadExtractor(videoUrl, videoUrl, subtitleCallback, callback)) {
+                    added = true
+                }
             } catch (_: Throwable) {
-                added = false
+                // Extractor failed; `added` keeps whatever the y2mate
+                // step (or the fallback below) produced.
             }
             if (!added && !isYoutube) {
                 callback(
