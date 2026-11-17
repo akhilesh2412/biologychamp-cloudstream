@@ -10,8 +10,7 @@ index and plays its lecture links — no scraping, no hard-coded video URLs.
 - **Home page** — one tab per section from the index: Alpha, Alpha Plus,
   Delta, Sigma, Prime, Others, BPSC 73rd, BPSC 72nd, BPSC TRE,
   Bihar Daroga & BSSC, AEDO, Books & Notes, UPSC & Other PCS,
-  Free Courses, Futurekul Railway, Futurekul All Exams — plus a
-  **YouTube Courses** tab (see below).
+  Free Courses — plus a **YouTube Courses** tab (see below).
 - **YouTube Courses** — 7 full YouTube playlists as courses
   (Sigma Web Development by CodeWithHarry, Web Development by Apna
   College, MERN stack by CodeHelp, Web Development Full Course 2026 by
@@ -141,7 +140,7 @@ Local build (needs JDK 17 + Android SDK 35):
 ├── repo.json                        # repository manifest (URL rewritten by CI)
 ├── youtube_courses.json             # YouTube playlists: 7 courses, 720 videos
 ├── BiologyChamp/
-│   ├── build.gradle.kts             # version = 2 (must stay a bare integer)
+│   ├── build.gradle.kts             # version = 3 (must stay a bare integer)
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       └── kotlin/com/biologychamp/
