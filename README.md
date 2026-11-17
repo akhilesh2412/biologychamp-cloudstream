@@ -10,21 +10,30 @@ index and plays its lecture links — no scraping, no hard-coded video URLs.
 - **Home page** — one tab per section from the index: Alpha, Alpha Plus,
   Delta, Sigma, Prime, Others, BPSC 73rd, BPSC 72nd, BPSC TRE,
   Bihar Daroga & BSSC, AEDO, Books & Notes, UPSC & Other PCS,
-  Free Courses — plus a **YouTube Courses** tab (see below).
-- **YouTube Courses** — 7 full YouTube playlists as courses
-  (Sigma Web Development by CodeWithHarry, Web Development by Apna
-  College, MERN stack by CodeHelp, Web Development Full Course 2026 by
-  Coder Army, Python by CodeWithHarry, Python by Telusko, C Programming
-  by Neso Academy — 720 videos in total). Each course shows its playlist
-  thumbnail; every video is an episode with its own thumbnail and plays
-  through CloudStream's bundled YouTube extractor. The list lives in
-  `youtube_courses.json` in this repo, so adding a playlist is a data
-  change, not a rebuild.
+  Free Courses — plus YouTube playlist categories (see below):
+  Web Development, Python, Programming Languages, DSA & Algorithms,
+  Mobile Development, Databases, DevOps & Tools, System Design,
+  AI & Machine Learning, Computer Science, Cyber Security.
+- **YouTube playlists by category** — 54 full YouTube playlists as
+  courses (2,624 videos), grouped into 11 category tabs: Web Development
+  (17), Python (8), Programming Languages (7), Mobile Development (5),
+  DevOps & Tools (5), DSA & Algorithms (4), System Design (2),
+  Computer Science (2), Databases (2), Cyber Security (1),
+  AI & Machine Learning (1). There is no single "YouTube Courses" tab.
+  Each course shows its playlist thumbnail; every video is an episode
+  with its own thumbnail and plays through CloudStream's bundled
+  YouTube extractor. The list lives in `youtube_courses.json` in this
+  repo (each course carries a `category`), so adding a playlist is a
+  data change, not a rebuild — but a new category needs a matching tab
+  in the provider code.
 - **Search** — searches batch names (and section names) across the whole
   index, including sections added after this plugin was built.
 - **Batch page** — opens the course's own `api` JSON and lists its
   lectures as episodes, grouped by subject (season = subject), in
-  `orderIdx` order, with each lecture's poster. The description shows
+  `orderIdx` order. Each episode shows the lecture's poster when the
+  lecture has one, otherwise the course image — lectures usually ship
+  without their own poster, so without this fallback the episode
+  thumbnails stayed blank. The description shows
   video / PDF counts and the price from the index.
 - **Playback** — `loadLinks` hands direct HLS (`.m3u8`) and MP4 / direct
   download links to the player via CloudStream's bundled extractors,
@@ -98,7 +107,7 @@ and search don't re-download it on every tap.
 
 1. Push this repo to GitHub (or fork it). The workflow below builds it.
 2. In CloudStream: **Settings → Extensions → Add Repository**, paste:
-   `https://raw.githubusercontent.com/Akhilesh2412/biologychamp-cloudstream/builds/repo.json`
+   `https://raw.githubusercontent.com/Akhilesh2412/programming-courses/builds/repo.json`
 3. Install **BiologyChamp** from the repository list.
 
 > The `builds` branch URL is generated automatically by the workflow,
@@ -116,7 +125,7 @@ with the included GitHub workflow.
    - `plugins.json` — plugin list
    - `repo.json` — repository manifest the app actually fetches
 2. Repository URL for the app ("Add Repository"):
-   `https://raw.githubusercontent.com/Akhilesh2412/biologychamp-cloudstream/builds/repo.json`
+   `https://raw.githubusercontent.com/Akhilesh2412/programming-courses/builds/repo.json`
 
 The workflow first builds the CloudStream gradle plugin from source
 (`recloudstream/gradle` @ `32895ae`) and publishes it to `mavenLocal`,
@@ -138,9 +147,9 @@ Local build (needs JDK 17 + Android SDK 35):
 ├── build.gradle.kts                 # root Gradle config (AGP 8.7.3, Kotlin 2.4.0)
 ├── settings.gradle.kts              # auto-includes every module folder
 ├── repo.json                        # repository manifest (URL rewritten by CI)
-├── youtube_courses.json             # YouTube playlists: 7 courses, 720 videos
+├── youtube_courses.json             # YouTube playlists: 54 courses in 11 categories, 2624 videos
 ├── BiologyChamp/
-│   ├── build.gradle.kts             # version = 3 (must stay a bare integer)
+│   ├── build.gradle.kts             # version = 4 (must stay a bare integer)
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       └── kotlin/com/biologychamp/

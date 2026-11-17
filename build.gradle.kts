@@ -42,7 +42,7 @@ subprojects {
     cloudstream {
         // When running through the GitHub workflow, GITHUB_REPOSITORY
         // contains the current repository name.
-        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "Akhilesh2412/biologychamp-cloudstream")
+        setRepo(System.getenv("GITHUB_REPOSITORY") ?: "Akhilesh2412/programming-courses")
     }
 
     android {
