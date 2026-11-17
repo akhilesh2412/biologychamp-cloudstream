@@ -1,7 +1,7 @@
 // BiologyChamp — single-provider CloudStream plugin.
 // Version must stay a bare integer: the CloudStream gradle plugin reads
 // `project.version` with .toIntOrNull() and falls back to -1 otherwise.
-version = 3
+version = 5
 
 dependencies {
     // jsoup 1.18.3 is compiled against jspecify annotations (provided
@@ -10,7 +10,7 @@ dependencies {
 }
 
 cloudstream {
-    description = "BiologyChamp study batches from https://new.biologychamp.co.in/study/study01.json — Alpha, Delta, Sigma, Prime, BPSC, TRE, Railway and more. Browse by section, search any batch, open a batch to see its lectures grouped by subject, and play direct HLS / MP4 lecture links. Also includes a 'YouTube Courses' tab with full YouTube playlists (web dev, Python, C) whose videos play through CloudStream's YouTube extractor."
+    description = "BiologyChamp study batches from https://new.biologychamp.co.in/study/study01.json — Alpha, Delta, Sigma, Prime, BPSC, TRE, Railway and more. Browse by section, search any batch, open a batch to see its lectures grouped by subject, and play direct HLS / MP4 lecture links. Also includes 54 YouTube playlists organised into category tabs (Web Development, Python, Programming Languages, DSA & Algorithms, Mobile Development, Databases, DevOps & Tools, System Design, AI & Machine Learning, Computer Science, Cyber Security) whose videos play through CloudStream's YouTube extractor."
     authors = listOf("Akhilesh2412")
 
     /**
