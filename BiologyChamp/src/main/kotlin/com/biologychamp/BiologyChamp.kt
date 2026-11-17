@@ -41,6 +41,13 @@ import org.json.JSONObject
  * Only content the operator has the right to distribute should be served
  * through this index. The plugin itself stores no video URLs; it reads
  * them at runtime from the operator's own JSON API.
+ *
+ * YouTube courses (added 2026-11-18): the provider also serves a
+ * "YouTube Courses" tab from youtube_courses.json, a file kept in this
+ * repo and fetched at runtime from raw.githubusercontent.com. Each entry
+ * is a YouTube playlist: its videos become episodes (title + thumbnail),
+ * played through CloudStream's bundled YouTube extractor. Nothing old
+ * was removed — the BiologyChamp batches work exactly as before.
  */
 class BiologyChamp : MainAPI() {
 
@@ -70,6 +77,7 @@ class BiologyChamp : MainAPI() {
         "Free Courses" to "Free Courses",
         "Futurekul Railway" to "Futurekul Railway",
         "Futurekul All Exams" to "Futurekul All Exams",
+        "YouTube Courses" to "YouTube Courses",
     )
 
     companion object {
@@ -89,6 +97,15 @@ class BiologyChamp : MainAPI() {
         private var cachedIndex: JSONObject? = null
         private var cachedIndexAt = 0L
         private const val INDEX_TTL_MS = 10 * 60 * 1000L
+
+        // YouTube courses live in youtube_courses.json in this repo, so
+        // the list can be refreshed without rebuilding the plugin.
+        private const val YOUTUBE_COURSES_URL =
+            "https://raw.githubusercontent.com/Akhilesh2412/biologychamp-cloudstream/main/youtube_courses.json"
+        private const val YOUTUBE_SECTION = "YouTube Courses"
+
+        private var cachedYoutube: JSONObject? = null
+        private var cachedYoutubeAt = 0L
     }
 
     // ------------------------------------------------------------------
@@ -113,6 +130,21 @@ class BiologyChamp : MainAPI() {
         val chapter: String?,
         val poster: String?,
         val order: Int,
+    )
+
+    private data class YoutubeVideo(
+        val id: String,
+        val title: String,
+        val thumbnail: String?,
+    )
+
+    private data class YoutubeCourse(
+        val id: String,
+        val title: String,
+        val channel: String,
+        val description: String,
+        val thumbnail: String?,
+        val videos: List<YoutubeVideo>,
     )
 
     private suspend fun fetchIndex(): JSONObject {
@@ -152,6 +184,60 @@ class BiologyChamp : MainAPI() {
         return out
     }
 
+    private suspend fun fetchYoutubeCourses(): JSONObject {
+        val now = System.currentTimeMillis()
+        cachedYoutube?.let { if (now - cachedYoutubeAt < INDEX_TTL_MS) return it }
+        val text = app.get(YOUTUBE_COURSES_URL, headers = JSON_HEADERS).text
+        val json = JSONObject(text)
+        cachedYoutube = json
+        cachedYoutubeAt = now
+        return json
+    }
+
+    private fun parseYoutubeCourses(json: JSONObject): List<YoutubeCourse> {
+        val out = ArrayList<YoutubeCourse>()
+        val courses = json.optJSONArray("courses") ?: return out
+        for (i in 0 until courses.length()) {
+            val obj = courses.optJSONObject(i) ?: continue
+            val id = obj.optString("id").trim()
+            val title = obj.optString("title").trim()
+            if (id.isBlank() || title.isBlank()) continue
+            val videos = ArrayList<YoutubeVideo>()
+            val arr = obj.optJSONArray("videos")
+            if (arr != null) {
+                for (j in 0 until arr.length()) {
+                    val v = arr.optJSONObject(j) ?: continue
+                    val vid = v.optString("id").trim()
+                    val vtitle = v.optString("title").trim()
+                    if (vid.isBlank() || vtitle.isBlank()) continue
+                    videos += YoutubeVideo(
+                        id = vid,
+                        title = vtitle,
+                        thumbnail = v.optString("thumbnail").takeIf { it.isNotBlank() },
+                    )
+                }
+            }
+            out += YoutubeCourse(
+                id = id,
+                title = title,
+                channel = obj.optString("channel").trim(),
+                description = obj.optString("description").trim(),
+                thumbnail = obj.optString("thumbnail").takeIf { it.isNotBlank() },
+                videos = videos,
+            )
+        }
+        return out
+    }
+
+    private fun YoutubeCourse.toSearchResponse(): SearchResponse =
+        newTvSeriesSearchResponse(
+            title,
+            "https://www.youtube.com/playlist?list=$id",
+            TvType.Others,
+        ) {
+            posterUrl = thumbnail
+        }
+
     private fun Course.toSearchResponse(): SearchResponse =
         newTvSeriesSearchResponse(name, api, TvType.Others) {
             posterUrl = image
@@ -164,6 +250,14 @@ class BiologyChamp : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         // The whole catalogue is one JSON file — there is no pagination.
         if (page > 1) return newHomePageResponse(request, emptyList())
+        if (request.data.equals(YOUTUBE_SECTION, ignoreCase = true)) {
+            return try {
+                val courses = parseYoutubeCourses(fetchYoutubeCourses())
+                newHomePageResponse(request, courses.map { it.toSearchResponse() })
+            } catch (_: Throwable) {
+                newHomePageResponse(request, emptyList())
+            }
+        }
         return try {
             val courses = parseIndex(fetchIndex())
                 .filter { it.section.equals(request.data, ignoreCase = true) }
@@ -176,19 +270,34 @@ class BiologyChamp : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val q = query.trim()
         if (q.isBlank()) return emptyList()
-        return try {
-            parseIndex(fetchIndex())
+        val out = ArrayList<SearchResponse>()
+        try {
+            out += parseIndex(fetchIndex())
                 .filter {
                     it.name.contains(q, ignoreCase = true) ||
                         it.section.contains(q, ignoreCase = true)
                 }
                 .map { it.toSearchResponse() }
         } catch (_: Throwable) {
-            emptyList()
         }
+        try {
+            out += parseYoutubeCourses(fetchYoutubeCourses())
+                .filter {
+                    it.title.contains(q, ignoreCase = true) ||
+                        it.channel.contains(q, ignoreCase = true)
+                }
+                .map { it.toSearchResponse() }
+        } catch (_: Throwable) {
+        }
+        return out
     }
 
     override suspend fun load(url: String): LoadResponse {
+        // YouTube playlist course: the url is the playlist page URL.
+        if (url.contains("youtube.com/playlist", ignoreCase = true)) {
+            val playlistId = url.substringAfter("list=", "").substringBefore("&").trim()
+            return loadYoutubeCourse(url, playlistId)
+        }
         val text = app.get(url, headers = JSON_HEADERS).text
         val json = JSONObject(text)
 
@@ -228,6 +337,38 @@ class BiologyChamp : MainAPI() {
             posterUrl = poster
             this.plot = plot.ifBlank { null }
             tags = subjectList.ifEmpty { null }
+        }
+    }
+
+    /** A YouTube playlist from youtube_courses.json: videos become episodes. */
+    private suspend fun loadYoutubeCourse(url: String, playlistId: String): LoadResponse {
+        val course = try {
+            parseYoutubeCourses(fetchYoutubeCourses()).firstOrNull { it.id == playlistId }
+        } catch (_: Throwable) {
+            null
+        }
+        if (course == null) {
+            return newTvSeriesLoadResponse("YouTube Course", url, TvType.Others, emptyList()) {
+                plot = "This YouTube playlist could not be loaded. " +
+                    "Check that youtube_courses.json is up to date."
+            }
+        }
+        val episodes = course.videos.mapIndexed { idx, video ->
+            newEpisode("https://www.youtube.com/watch?v=${video.id}") {
+                name = video.title
+                season = 1
+                episode = idx + 1
+                posterUrl = video.thumbnail
+            }
+        }
+        val plot = buildString {
+            append("🎥 ${course.videos.size} videos")
+            if (course.channel.isNotBlank()) append("  •  📺 ${course.channel}")
+            if (course.description.isNotBlank()) append("\n${course.description}")
+        }.trim()
+        return newTvSeriesLoadResponse(course.title, url, TvType.Others, episodes) {
+            posterUrl = course.thumbnail
+            this.plot = plot.ifBlank { null }
         }
     }
 
@@ -350,6 +491,11 @@ class BiologyChamp : MainAPI() {
     ): Boolean {
         val videoUrl = data.trim()
         if (videoUrl.isBlank()) return false
+        // A YouTube watch page is not a playable file, so there is no
+        // direct-link fallback for it — the bundled YouTube extractor
+        // (via loadExtractor below) is the only source.
+        val isYoutube = videoUrl.contains("youtube.com", ignoreCase = true) ||
+            videoUrl.contains("youtu.be", ignoreCase = true)
         return try {
             val lower = videoUrl.lowercase()
             val type = when {
@@ -367,7 +513,7 @@ class BiologyChamp : MainAPI() {
             } catch (_: Throwable) {
                 added = false
             }
-            if (!added) {
+            if (!added && !isYoutube) {
                 callback(
                     newExtractorLink(name, "BiologyChamp", videoUrl, type) {
                         referer = mainUrl
