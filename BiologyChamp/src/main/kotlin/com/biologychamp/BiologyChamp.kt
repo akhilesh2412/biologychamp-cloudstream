@@ -42,12 +42,17 @@ import org.json.JSONObject
  * through this index. The plugin itself stores no video URLs; it reads
  * them at runtime from the operator's own JSON API.
  *
- * YouTube courses (added 2026-11-18): the provider also serves a
- * "YouTube Courses" tab from youtube_courses.json, a file kept in this
- * repo and fetched at runtime from raw.githubusercontent.com. Each entry
- * is a YouTube playlist: its videos become episodes (title + thumbnail),
- * played through CloudStream's bundled YouTube extractor. Nothing old
- * was removed — the BiologyChamp batches work exactly as before.
+ * YouTube courses (added 2026-11-18): 54 programming playlists from
+ * youtube_courses.json, a file kept in this repo and fetched at runtime
+ * from raw.githubusercontent.com. Each playlist carries a `category`
+ * (Web Development, Python, Programming Languages, DSA & Algorithms,
+ * Mobile Development, Databases, DevOps & Tools, System Design,
+ * AI & Machine Learning, Computer Science, Cyber Security) and shows
+ * up under its own category tab on the home page — there is no single
+ * "YouTube Courses" tab. A playlist's videos become episodes (title +
+ * thumbnail), played through CloudStream's bundled YouTube extractor.
+ * Nothing old was removed — the BiologyChamp batches work exactly
+ * as before.
  */
 class BiologyChamp : MainAPI() {
 
@@ -77,7 +82,19 @@ class BiologyChamp : MainAPI() {
         "Books & Notes" to "Books & Notes",
         "UPSC & Other PCS" to "UPSC & Other PCS",
         "Free Courses" to "Free Courses",
-        "YouTube Courses" to "YouTube Courses",
+        // YouTube playlist categories (from youtube_courses.json).
+        // There is deliberately no single "YouTube Courses" tab.
+        "Web Development" to "Web Development",
+        "Python" to "Python",
+        "Programming Languages" to "Programming Languages",
+        "DSA & Algorithms" to "DSA & Algorithms",
+        "Mobile Development" to "Mobile Development",
+        "Databases" to "Databases",
+        "DevOps & Tools" to "DevOps & Tools",
+        "System Design" to "System Design",
+        "AI & Machine Learning" to "AI & Machine Learning",
+        "Computer Science" to "Computer Science",
+        "Cyber Security" to "Cyber Security",
     )
 
     companion object {
@@ -100,9 +117,17 @@ class BiologyChamp : MainAPI() {
 
         // YouTube courses live in youtube_courses.json in this repo, so
         // the list can be refreshed without rebuilding the plugin.
+        // Every course carries a `category`; each category is its own
+        // home-page tab (see mainPage). A course whose category matches
+        // no tab is not listed anywhere, so new categories need a tab.
         private const val YOUTUBE_COURSES_URL =
-            "https://raw.githubusercontent.com/Akhilesh2412/biologychamp-cloudstream/main/youtube_courses.json"
-        private const val YOUTUBE_SECTION = "YouTube Courses"
+            "https://raw.githubusercontent.com/Akhilesh2412/programming-courses/main/youtube_courses.json"
+        private val YOUTUBE_CATEGORIES = setOf(
+            "Web Development", "Python", "Programming Languages",
+            "DSA & Algorithms", "Mobile Development", "Databases",
+            "DevOps & Tools", "System Design", "AI & Machine Learning",
+            "Computer Science", "Cyber Security",
+        )
 
         // Sections the operator does not want listed (removed 2026-11-18).
         private val EXCLUDED_SECTIONS = setOf("Futurekul Railway", "Futurekul All Exams")
@@ -145,6 +170,7 @@ class BiologyChamp : MainAPI() {
         val id: String,
         val title: String,
         val channel: String,
+        val category: String,
         val description: String,
         val thumbnail: String?,
         val videos: List<YoutubeVideo>,
@@ -224,6 +250,7 @@ class BiologyChamp : MainAPI() {
                 id = id,
                 title = title,
                 channel = obj.optString("channel").trim(),
+                category = obj.optString("category").trim().ifBlank { "Other" },
                 description = obj.optString("description").trim(),
                 thumbnail = obj.optString("thumbnail").takeIf { it.isNotBlank() },
                 videos = videos,
@@ -253,9 +280,10 @@ class BiologyChamp : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         // The whole catalogue is one JSON file — there is no pagination.
         if (page > 1) return newHomePageResponse(request, emptyList())
-        if (request.data.equals(YOUTUBE_SECTION, ignoreCase = true)) {
+        if (YOUTUBE_CATEGORIES.any { it.equals(request.data, ignoreCase = true) }) {
             return try {
                 val courses = parseYoutubeCourses(fetchYoutubeCourses())
+                    .filter { it.category.equals(request.data, ignoreCase = true) }
                 newHomePageResponse(request, courses.map { it.toSearchResponse() })
             } catch (_: Throwable) {
                 newHomePageResponse(request, emptyList())
@@ -306,13 +334,22 @@ class BiologyChamp : MainAPI() {
         val json = JSONObject(text)
 
         val courseName = json.optString("name").trim().ifBlank { "BiologyChamp Course" }
+        // Lectures usually ship without their own poster, so keep the
+        // course image handy — it becomes every episode's thumbnail
+        // (see lecturesToEpisodes). If the batch JSON has no image
+        // either, fall back to the same course's image in the index.
         val poster = json.optString("image").takeIf { it.isNotBlank() }
+            ?: try {
+                parseIndex(fetchIndex()).firstOrNull { it.api == url }?.image
+            } catch (_: Throwable) {
+                null
+            }
         val videoCount = json.optInt("videoCount")
         val pdfCount = json.optInt("pdfCount")
         val price = json.optInt("originalPrice")
 
         val lectures = parseLectures(json)
-        val episodes = lecturesToEpisodes(url, lectures)
+        val episodes = lecturesToEpisodes(url, lectures, poster)
 
         val subjectList = lectures.mapNotNull { it.subject?.trim() }
             .filter { it.isNotBlank() }.distinct().take(10)
@@ -460,7 +497,7 @@ class BiologyChamp : MainAPI() {
             lower.contains("download")
     }
 
-    private fun lecturesToEpisodes(courseUrl: String, lectures: List<Lecture>): List<Episode> {
+    private fun lecturesToEpisodes(courseUrl: String, lectures: List<Lecture>, coursePoster: String? = null): List<Episode> {
         val subjects = lectures.mapNotNull { it.subject?.trim() }
             .filter { it.isNotBlank() }.distinct()
         val perSubjectCounter = HashMap<String, Int>()
@@ -478,7 +515,10 @@ class BiologyChamp : MainAPI() {
                 name = displayName
                 this.season = season
                 episode = epNo
-                posterUrl = lecture.poster
+                // Most lectures carry no poster of their own, which is
+                // why episode thumbnails showed blank. Fall back to the
+                // course image so every episode has a thumbnail.
+                posterUrl = lecture.poster?.takeIf { it.isNotBlank() } ?: coursePoster
             }
         }
     }
