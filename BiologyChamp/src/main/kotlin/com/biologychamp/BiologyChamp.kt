@@ -59,7 +59,9 @@ class BiologyChamp : MainAPI() {
 
     // Sections verified in study01.json on 2026-11-17. Search covers every
     // section (including any added later); the home page tabs are the
-    // sections known at build time.
+    // sections known at build time. "Futurekul Railway" and
+    // "Futurekul All Exams" were removed 2026-11-18 at the operator's
+    // request — only professional technical courses are listed.
     override val mainPage = mainPageOf(
         "Alpha" to "Alpha",
         "Alpha Plus" to "Alpha Plus",
@@ -75,8 +77,6 @@ class BiologyChamp : MainAPI() {
         "Books & Notes" to "Books & Notes",
         "UPSC & Other PCS" to "UPSC & Other PCS",
         "Free Courses" to "Free Courses",
-        "Futurekul Railway" to "Futurekul Railway",
-        "Futurekul All Exams" to "Futurekul All Exams",
         "YouTube Courses" to "YouTube Courses",
     )
 
@@ -103,6 +103,9 @@ class BiologyChamp : MainAPI() {
         private const val YOUTUBE_COURSES_URL =
             "https://raw.githubusercontent.com/Akhilesh2412/biologychamp-cloudstream/main/youtube_courses.json"
         private const val YOUTUBE_SECTION = "YouTube Courses"
+
+        // Sections the operator does not want listed (removed 2026-11-18).
+        private val EXCLUDED_SECTIONS = setOf("Futurekul Railway", "Futurekul All Exams")
 
         private var cachedYoutube: JSONObject? = null
         private var cachedYoutubeAt = 0L
@@ -273,6 +276,7 @@ class BiologyChamp : MainAPI() {
         val out = ArrayList<SearchResponse>()
         try {
             out += parseIndex(fetchIndex())
+                .filter { it.section !in EXCLUDED_SECTIONS }
                 .filter {
                     it.name.contains(q, ignoreCase = true) ||
                         it.section.contains(q, ignoreCase = true)
