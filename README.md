@@ -10,7 +10,17 @@ index and plays its lecture links — no scraping, no hard-coded video URLs.
 - **Home page** — one tab per section from the index: Alpha, Alpha Plus,
   Delta, Sigma, Prime, Others, BPSC 73rd, BPSC 72nd, BPSC TRE,
   Bihar Daroga & BSSC, AEDO, Books & Notes, UPSC & Other PCS,
-  Free Courses, Futurekul Railway, Futurekul All Exams.
+  Free Courses, Futurekul Railway, Futurekul All Exams — plus a
+  **YouTube Courses** tab (see below).
+- **YouTube Courses** — 7 full YouTube playlists as courses
+  (Sigma Web Development by CodeWithHarry, Web Development by Apna
+  College, MERN stack by CodeHelp, Web Development Full Course 2026 by
+  Coder Army, Python by CodeWithHarry, Python by Telusko, C Programming
+  by Neso Academy — 720 videos in total). Each course shows its playlist
+  thumbnail; every video is an episode with its own thumbnail and plays
+  through CloudStream's bundled YouTube extractor. The list lives in
+  `youtube_courses.json` in this repo, so adding a playlist is a data
+  change, not a rebuild.
 - **Search** — searches batch names (and section names) across the whole
   index, including sections added after this plugin was built.
 - **Batch page** — opens the course's own `api` JSON and lists its
@@ -129,8 +139,9 @@ Local build (needs JDK 17 + Android SDK 35):
 ├── build.gradle.kts                 # root Gradle config (AGP 8.7.3, Kotlin 2.4.0)
 ├── settings.gradle.kts              # auto-includes every module folder
 ├── repo.json                        # repository manifest (URL rewritten by CI)
+├── youtube_courses.json             # YouTube playlists: 7 courses, 720 videos
 ├── BiologyChamp/
-│   ├── build.gradle.kts             # version = 1 (must stay a bare integer)
+│   ├── build.gradle.kts             # version = 2 (must stay a bare integer)
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       └── kotlin/com/biologychamp/
