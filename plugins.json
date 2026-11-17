@@ -1,10 +1,10 @@
 [
     {
         "iconUrl": "https://lwfiles.mycourse.app/62a6cd5e1e9e2fbf212d608d-public/05e2153f1e10cdbe245ce6ae493910e9.jpeg",
-        "fileHash": "sha256-5f8e5dbeec99f444744a0d7c7551d485577158c3bd25862ba1dda0efe74f9a7a",
+        "fileHash": "sha256-12bd96534454cbce8bcdcbe8b481d7ece219a9d4ba48dca4156ec6d3fbd3ce05",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/akhilesh2412/programming-courses",
-        "fileSize": 28736,
+        "fileSize": 31323,
         "status": 1,
         "language": "en",
         "authors": [
@@ -13,7 +13,7 @@
         "tvTypes": [
             "Others"
         ],
-        "version": 5,
+        "version": 6,
         "internalName": "BiologyChamp",
         "description": "BiologyChamp study batches from https://new.biologychamp.co.in/study/study01.json \u2014 Alpha, Delta, Sigma, Prime, BPSC, TRE, Railway and more. Browse by section, search any batch, open a batch to see its lectures grouped by subject, and play direct HLS / MP4 lecture links. Also includes 54 YouTube playlists organised into category tabs (Web Development, Python, Programming Languages, DSA & Algorithms, Mobile Development, Databases, DevOps & Tools, System Design, AI & Machine Learning, Computer Science, Cyber Security) whose videos play through CloudStream's YouTube extractor.",
         "url": "https://raw.githubusercontent.com/akhilesh2412/programming-courses/builds/BiologyChamp.cs3",
